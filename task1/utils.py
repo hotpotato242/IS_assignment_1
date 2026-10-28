@@ -11,12 +11,24 @@ class Problem:
         self.rooms = rooms
         self.teachers = teachers
 
-        self.lectures = [(c, d) for c, durs in parse_classes("../sem1_files/Classes.txt").items() for d in durs]
+        self.lectures = [(c, d) for c, durs in classes.items() for d in durs]
         # list of lectures [("programming", 2), ...] (programming is 2 hours long)
-        self.room_names = [k for k, _ in parse_rooms("../sem1_files/Classes.txt").items()]
-        self.teacher_names = [k for k, _ in parse_rooms("../sem1_files/Teachers.txt").items()]
+        self.room_names = [k for k, _ in rooms.items()]
+        self.teacher_names = [k for k, _ in teachers.items()]
         #get the room/teacher names respectivly
 
+        self.gene_space = self.make_gene_space()
+
+    def make_gene_space(self):
+        space = []
+        min_open = min(o for o, _ in self.rooms.values())
+        max_close = max(c for _, c in self.rooms.values())
+        for i in range(len(self.lectures)):
+            space.append(list(range(len(self.room_names))))
+            space.append(list(range(min_open, max_close)))           
+            space.append(list(range(len(self.teacher_names))))
+
+        return space
 
 def read_lines(path):
     with open(path) as f:
@@ -58,7 +70,7 @@ def decode(solution, problem: Problem):
     schedule = []
     for i, (cls, dur) in enumerate(problem.lectures):
         room = problem.room_names[int(solution[3*i])]
-        start = int(solution[3*i])
+        start = int(solution[3*i+1])
         teacher = problem.teacher_names[int(solution[3*i+2])]
         schedule.append({"class": cls,
                          "classroom": room,
@@ -66,14 +78,14 @@ def decode(solution, problem: Problem):
                          "end": start+dur,
                          "teacher": teacher})
 
-        return schedule
+    return schedule
 
-def print_solution(solution):
-    schedule = decode(solution)
-
-    schedule.sort(key=lambda l: (l["room"], l["start"])) #sorts by room first, then start time
-    print(schedule)
-
-
+def print_solution(solution, problem):
+    schedule = decode(solution, problem)
+    schedule.sort(key=lambda l: (l["classroom"], l["start"]))
+    
+    for s in schedule:
+        print(f'{s["classroom"]:>6} {s["start"]:02d}:00-{s["end"]:02d}:00  '
+              f'{s["class"]:<15} {s["teacher"]}')
 
 
