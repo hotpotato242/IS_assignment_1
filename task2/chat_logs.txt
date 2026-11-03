@@ -1,0 +1,362 @@
+delam z pygad genetskimi  algoritmi in sem implementiral greedy algoritem za init populacije za genetski algoritem za dolocanje optimalnega urnika, sedaj moram pa resitev primerjati z zacetnim algoritmom z nakljucno populacijo, Use PyGAD lifecycle callbacks (on mutation, on crossover,
+etc.) to compare how quickly each step of the algorithm executes compared
+to the one in Task 1 and how quickly the fitness function increases na kaksen naicn je to najbolje implemenitati
+
+Najbolje je, da primerjavo implementiraš kot eksperiment z dvema različnima načinoma inicializacije populacije, pri čemer vse ostale parametre genetskega algoritma ohraniš enake.
+
+Tvoj cilj je primerjati:
+
+    Random initialization – začetna populacija je generirana naključno (osnovna implementacija iz Task 1).
+    Greedy initialization – začetna populacija je generirana z greedy algoritmom.
+
+Pri tem bi spremljal dve glavni stvari:
+
+    Čas izvajanja posameznih faz genetskega algoritma (crossover, mutation, selection itd.).
+    Napredovanje fitness funkcije skozi generacije (kako hitro algoritem najde boljše urnike).
+
+Za to so PyGAD callback funkcije zelo primerne. Predlagam, da uporabiš on_start, on_fitness, on_crossover, on_mutation in on_generation.
+1. Kaj točno meriti?
+
+Predlagam naslednje metrike:
+Metrika	Kaj meriš
+Initialization time	Čas generiranja začetne populacije
+Fitness evaluation time	Čas izračunavanja fitness funkcije
+Crossover time	Čas izvajanja križanja
+Mutation time	Čas izvajanja mutacije
+Generation time	Čas ene generacije
+Best fitness	Najboljši fitness v posamezni generaciji
+Average fitness	Povprečni fitness populacije
+Total execution time	Celoten čas izvajanja algoritma
+
+Posebej pomembno je, da meriš tudi začetni fitness populacije, še preden se začne prva generacija. Tako boš lahko pokazal, ali greedy inicializacija že na začetku ustvari boljše rešitve.
+2. Kako implementirati merjenje s PyGAD callbacki?
+
+Najprej ustvariš razred, ki bo zbiral podatke med izvajanjem algoritma.
+
+Uporabil bi time.perf_counter(), ker je primeren za natančno merjenje trajanja operacij.
+import time
+import numpy as np
+
+class GAMetrics:
+
+    def __init__(self):
+        self.fitness_history = []
+        self.avg_fitness_history = []
+
+        self.generation_times = []
+        self.fitness_times = []
+
+        self.crossover_times = []
+        self.mutation_times = []
+
+        self.generation_start = None
+        self.fitness_start = None
+
+        self.total_start = None
+
+    def on_start(self, ga_instance):
+        self.total_start = time.perf_counter()
+        self.generation_start = time.perf_counter()
+
+    def on_fitness(self, ga_instance, population_fitness):
+
+        best_fitness = np.max(population_fitness)
+        avg_fitness = np.mean(population_fitness)
+
+        self.fitness_history.append(best_fitness)
+        self.avg_fitness_history.append(avg_fitness)
+
+    def on_crossover(self, ga_instance, offspring):
+
+        # Callback se izvede po crossover operaciji.
+        pass
+
+    def on_mutation(self, ga_instance, offspring):
+
+        # Callback se izvede po mutation operaciji.
+        pass
+
+    def on_generation(self, ga_instance):
+
+        generation_time = time.perf_counter() - self.generation_start
+
+        self.generation_times.append(generation_time)
+
+        self.generation_start = time.perf_counter()
+
+    def on_stop(self, ga_instance, last_population_fitness):
+
+        self.total_time = time.perf_counter() - self.total_start
+
+Pomembna podrobnost: on_crossover in on_mutation se izvedeta po zaključku operacije. Zato z njima neposredno ne moreš izmeriti časa samega crossoverja oziroma mutationa. Za to potrebuješ ovijalno funkcijo (wrapper) okoli operatorja.
+
+Enako velja za fitness: čas izračuna meriš neposredno znotraj fitness funkcije.
+3. Merjenje časa fitness funkcije
+
+Svojo obstoječo fitness funkcijo lahko oviješ tako:
+def fitness_func(ga_instance, solution, solution_idx):
+
+    start = time.perf_counter()
+
+    fitness = calculate_fitness(solution)
+
+    elapsed = time.perf_counter() - start
+
+    metrics.fitness_times.append(elapsed)
+
+    return fitness
+
+calculate_fitness() predstavlja tvojo obstoječo implementacijo.
+
+Tako dobiš čas posameznega izračuna fitness funkcije.
+
+Pomembno: PyGAD lahko fitness izračune tudi ponovno uporabi, zato število klicev fitness funkcije ni nujno enako številu vseh rešitev v vseh generacijah.
+4. Kako povezati metrike s PyGAD?
+
+Pri ustvarjanju GA instance preprosto dodaš callback funkcije:
+metrics = GAMetrics()
+
+ga_instance = pygad.GA(
+    num_generations=100,
+    num_parents_mating=10,
+
+    fitness_func=fitness_func,
+
+    initial_population=initial_population,
+
+    on_start=metrics.on_start,
+    on_fitness=metrics.on_fitness,
+    on_crossover=metrics.on_crossover,
+    on_mutation=metrics.on_mutation,
+    on_generation=metrics.on_generation,
+    on_stop=metrics.on_stop,
+
+    # Ostali parametri ostanejo enaki kot v Task 1.
+)
+
+ga_instance.run()
+
+Za primerjavo nato ustvariš dve instanci:
+
+    Prva uporablja naključno začetno populacijo.
+    Druga uporablja tvojo greedy začetno populacijo.
+
+Vse ostalo mora ostati enako.
+
+Pri random inicializaciji lahko uporabiš PyGAD-ovo privzeto generiranje populacije, pri greedy inicializaciji pa podaš svojo populacijo prek initial_population.
+5. Kako izmeriti crossover in mutation?
+
+Ker želiš primerjati izvajanje posameznih faz, lahko uporabiš tudi časovne oznake med callbacki.
+
+Na primer:
+class GAMetrics:
+
+    def __init__(self):
+        self.crossover_times = []
+        self.mutation_times = []
+
+        self.stage_start = None
+
+    def on_parents(self, ga_instance, selected_parents):
+        self.stage_start = time.perf_counter()
+
+    def on_crossover(self, ga_instance, offspring):
+        elapsed = time.perf_counter() - self.stage_start
+        self.crossover_times.append(elapsed)
+
+        self.stage_start = time.perf_counter()
+
+    def on_mutation(self, ga_instance, offspring):
+        elapsed = time.perf_counter() - self.stage_start
+        self.mutation_times.append(elapsed)
+
+Dodaš še:
+on_parents=metrics.on_parents,
+
+Tako približno izmeriš čas med posameznimi fazami. Vendar upoštevaj, da meritve vključujejo tudi nekaj režije PyGAD in callbackov. Če želiš natančen čas samega operatorja, uporabiš časovno merjenje neposredno v lastnem crossover oziroma mutation operatorju.
+6. Primerjava rezultatov in grafi
+
+To je po mojem mnenju najpomembnejši del tvoje naloge.
+
+Priporočam tri grafe.
+Graf 1: Best fitness skozi generacije
+
+Na istem grafu prikažeš:
+
+    Random initialization
+    Greedy initialization
+
+import matplotlib.pyplot as plt
+
+plt.plot(random_metrics.fitness_history, label="Random initialization")
+plt.plot(greedy_metrics.fitness_history, label="Greedy initialization")
+
+plt.xlabel("Generation")
+plt.ylabel("Best fitness")
+plt.title("Fitness improvement comparison")
+
+plt.legend()
+plt.grid()
+plt.show()
+
+Ta graf ti pokaže, ali greedy inicializacija omogoča hitrejše izboljševanje rešitev.
+Graf 2: Čas izvajanja posameznih operacij
+
+Primerjaš povprečne čase:
+operations = ["Fitness", "Crossover", "Mutation", "Generation"]
+
+random_times = [
+    np.mean(random_metrics.fitness_times),
+    np.mean(random_metrics.crossover_times),
+    np.mean(random_metrics.mutation_times),
+    np.mean(random_metrics.generation_times)
+]
+
+greedy_times = [
+    np.mean(greedy_metrics.fitness_times),
+    np.mean(greedy_metrics.crossover_times),
+    np.mean(greedy_metrics.mutation_times),
+    np.mean(greedy_metrics.generation_times)
+]
+
+x = np.arange(len(operations))
+width = 0.35
+
+plt.bar(x - width/2, random_times, width, label="Random")
+plt.bar(x + width/2, greedy_times, width, label="Greedy")
+
+plt.xticks(x, operations)
+plt.ylabel("Time (seconds)")
+plt.title("Execution time comparison")
+
+plt.legend()
+plt.show()
+Graf 3: Skupni čas izvajanja
+
+Primerjaš skupni čas izvajanja obeh algoritmov.
+
+Pri tem ne pozabi vključiti tudi časa inicializacije populacije.
+7. Zelo pomembno: večkratno izvajanje eksperimenta
+
+Ne bi priporočal, da vsak algoritem zaženeš samo enkrat.
+
+Genetski algoritmi so stohastični, zato lahko rezultati precej nihajo.
+
+Predlagam:
+
+    20–30 ponovitev vsakega algoritma.
+    Enako število generacij.
+    Enako velikost populacije.
+    Enake parametre crossoverja in mutationa.
+    Enako fitness funkcijo.
+    Različne naključne začetne vrednosti (seeds).
+
+Nato primerjaš povprečne rezultate in standardni odklon.
+
+Na primer:
+Metrika	Random	Greedy
+Average initial fitness	...	...
+Average final fitness	...	...
+Average execution time	...	...
+Average initialization time	...	...
+Average generations to best fitness	...	...
+8. Kako bi jaz zastavil celoten eksperiment?
+
+Predlagam naslednjo strukturo:
+Experiment
+│
+├── Random initialization
+│   ├── Generate random population
+│   ├── Measure initialization time
+│   ├── Run PyGAD
+│   └── Collect metrics
+│
+├── Greedy initialization
+│   ├── Generate greedy population
+│   ├── Measure initialization time
+│   ├── Run PyGAD
+│   └── Collect metrics
+│
+└── Compare results
+    ├── Fitness improvement
+    ├── Execution time
+    ├── Initialization time
+    ├── Average fitness
+    └── Final fitness
+Še ena pomembna stvar glede interpretacije rezultatov
+
+Pri greedy inicializaciji pričakuješ predvsem:
+
+    Višji začetni fitness.
+    Morda hitrejšo konvergenco.
+    Morda manjšo raznolikost začetne populacije.
+    Potencialno hitrejše doseganje dobrih rešitev, vendar ne nujno boljšega končnega rezultata.
+
+Greedy inicializacija lahko zahteva več časa za generiranje populacije, zato je pomembno, da primerjaš tudi celoten čas od začetka inicializacije do končne rešitve, ne samo čas izvajanja ga_instance.run().
+Moje priporočilo
+
+Za tvojo nalogo bi implementiral:
+
+    GAMetrics razred za zbiranje metrik.
+    Merjenje časa inicializacije zunaj PyGAD.
+    Merjenje časa fitness funkcije znotraj fitness_func.
+    Lifecycle callbacke za spremljanje posameznih generacij in faz.
+    20–30 ponovitev obeh algoritmov.
+    Tri grafe za primerjavo rezultatov.
+
+Uradna dokumentacija, ki ti bo pri implementaciji koristila:
+
+    PyGAD Life Cycle
+    PyGAD Lifecycle Callbacks
+    PyGAD Custom Functions and Callbacks
+
+Še posebej bi poudaril: ne primerjaj samo tega, kateri algoritem doseže višji fitness, ampak tudi, koliko časa potrebuje, da doseže določeno kakovost urnika. To je zelo dobra metrika za dokazovanje dejanske učinkovitosti greedy inicializacije.
+
+ValueError                                Traceback (most recent call last) Cell In[16], line 26 **     23** x = np.arange(len(operations)) **     24** width = 0.35 ---> 26 plt.bar(x - width/2, random_times, width, label="Random") **     27** plt.bar(x + width/2, greedy_times, width, label="Greedy") **     29** plt.xticks(x, operations)  File \~/miniconda3/envs/intelsys/lib/python3.9/site-packages/matplotlib/pyplot.py:2956, in bar(x, height, width, bottom, align, data, \*\*kwargs) **   2945** @\_copy_docstring_and_deprecators(Axes.bar) **   2946** def bar( **   2947**     x: float | ArrayLike,    (...) **   2954**     \*\*kwargs, **   2955** ) -> BarContainer: -> [2956](https://file+.vscode-resource.vscode-cdn.net/home/lovrop/Documents/Faks/3.letnik/IS/IS-course-labs-2026-main/assignment_1/task2/~/miniconda3/envs/intelsys/lib/python3.9/site-packages/matplotlib/pyplot.py:2956)     return gca().bar( **   2957**         x, **   2958**         height, **   2959**         width=width, **   2960**         bottom=bottom, **   2961**         align=align, **   2962**         \*\*({"data": data} if data is not None else {}), **   2963**         \*\*kwargs, **   2964**     )
+...
+    425     # ironically, np.broadcast does not properly handle np.broadcast     426     # objects (it treats them as scalars)     427     # use broadcasting to avoid allocating the full array  ValueError: shape mismatch: objects cannot be broadcast to a single shape.  Mismatch is between arg 0 with shape (5,) and arg 1 with shape (4,) kaj storiti
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Napaka pomeni, da se število elementov na osi X ne ujema s številom vrednosti, ki jih želiš prikazati na grafu.
+
+V tvojem primeru:
+- x ima obliko (5,) – torej 5 elementov.
+- random_times ima obliko (4,) – torej 4 elemente.
+Najverjetneje imaš v operations pet operacij, v random_times in greedy_times pa samo štiri meritve.
+1. Preveri dolžine seznamov
+print("Operations:", len(operations))print("Random:", len(random_times))print("Greedy:", len(greedy_times))print(operations)print(random_times)print(greedy_times)
+
+
+2. Najverjetneje je rešitev ta
+V prejšnji kodi sem navedel štiri metrike:
+operations = ["Fitness", "Crossover", "Mutation", "Generation"]
+
+
+Če pa imaš pet operacij, na primer tudi Selection, moraš dodati še njeno meritev.
+
+Lahko pa preprosto uporabiš štiri operacije:
+operations = ["Fitness", "Crossover", "Mutation", "Generation"]random_times = [    np.mean(random_metrics.fitness_times),    np.mean(random_metrics.crossover_times),    np.mean(random_metrics.mutation_times),    np.mean(random_metrics.generation_times)]greedy_times = [    np.mean(greedy_metrics.fitness_times),    np.mean(greedy_metrics.crossover_times),    np.mean(greedy_metrics.mutation_times),    np.mean(greedy_metrics.generation_times)]x = np.arange(len(operations))width = 0.35plt.figure(figsize=(10, 5))plt.bar(x - width/2, random_times, width, label="Random")plt.bar(x + width/2, greedy_times, width, label="Greedy")plt.xticks(x, operations)plt.ylabel("Time (seconds)")plt.title("Execution time comparison")plt.legend()plt.grid(axis="y")plt.show()
+
+
+3. Še ena pomembna stvar
+Če imaš kakšen prazen seznam, na primer:
+greedy_metrics.crossover_times = []
+
+
+bo np.mean() vrnil NaN in opozorilo. To se lahko zgodi, če callbacki niso pravilno povezani ali se operator ne izvaja.
+
+Preveri tudi:
+print(len(random_metrics.crossover_times))print(len(greedy_metrics.crossover_times))
+
