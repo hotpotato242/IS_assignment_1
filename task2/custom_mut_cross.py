@@ -10,10 +10,11 @@ def custom_crossover_func(parents, offsprings_size, ga_instance):
     #zanimiva ideja, da izberem za vsak skupek 3 genov enega od starsev
     #ampak ima vecjo verjetnost da bo izbran tisti ki ima vecji fitnes
     #mogoce prevec casovno kompleksno
+    k = min(4, len(parents))
 
     #replace false je brez ponavljanja
     for i in range(offsprings_size[0]):
-        parents_chosen=parents[np.random.choice(len(parents),4,replace=False)]
+        parents_chosen=parents[np.random.choice(len(parents),k,replace=False)]
         new_child=[]
         for k in range(len(parents[0])//3):
             chosen_idx = np.random.randint(len(parents_chosen))

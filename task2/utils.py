@@ -1,6 +1,7 @@
 
 import re, ast
 from dataclasses import dataclass
+import time
 
 
 class Problem:
@@ -89,7 +90,48 @@ def print_solution(solution, problem):
               f'{s["class"]:<15} {s["teacher"]}')
 
 
+#merjenje časa
 
     
 
+state = {"last": 0.0, "start": 0.0}
 
+
+metrics = {}
+
+
+def reset_metrics():
+    global metrics
+    metrics = {"times": {"fitness": 0.0, "parents": 0.0, "crossover": 0.0, "mutation": 0.0},
+               "best_fitness": [], "gen_time": []}
+    state["last"] = state["start"] = 0.0
+
+def tick(name):
+    now=time.perf_counter()
+    metrics["times"][name]+=now-state["last"]
+    state["last"]=now
+
+def on_start(ga):
+    state["start"]=state["last"]=time.perf_counter()
+
+def on_fitness(ga,fit):
+    tick("fitness")
+    if not metrics["best_fitness"]:
+        metrics["best_fitness"].append(float(max(fit)))
+        metrics["gen_time"].append(time.perf_counter() - state["start"])
+        state["last"] = time.perf_counter()
+
+def on_parents(ga, parents):
+    tick("parents")
+
+def on_crossover(ga, offspring):
+    tick("crossover")
+
+def on_mutation(ga, offspring):
+    tick("mutation")
+
+def on_generation(ga):
+    tick("fitness")
+    metrics["best_fitness"].append(float(max(ga.last_generation_fitness)))
+    metrics["gen_time"].append(time.perf_counter() - state["start"])
+    state["last"] = time.perf_counter()

@@ -81,6 +81,12 @@ def make_run_ga_task1(problem: Problem, *,
         gene_type=int,
         gene_space=problem.gene_space,
         stop_criteria="reach_1.0",
+        on_start=on_start,
+        on_fitness=on_fitness,
+        on_parents=on_parents,
+        on_crossover=on_crossover,
+        on_mutation=on_mutation,
+        on_generation=on_generation,
         num_genes=3*len(problem.lectures)
     )
 
@@ -93,7 +99,7 @@ def make_run_ga_task2(problem: Problem, *,
                 num_gen=100,
                 num_par_mate=20,
                 pop_size=50):
-    init_pop=improve_initial_pop(problem)
+    init_pop=improve_initial_pop(problem,pop_size=pop_size)
     ga_instance = pygad.GA(
         fitness_func=make_fitness(problem),
         num_generations=num_gen,
@@ -103,6 +109,12 @@ def make_run_ga_task2(problem: Problem, *,
         gene_type=int,
         gene_space=problem.gene_space,
         stop_criteria="reach_1.0",
+        on_start=on_start,
+        on_fitness=on_fitness,
+        on_parents=on_parents,
+        on_crossover=on_crossover,
+        on_mutation=on_mutation,
+        on_generation=on_generation,
         num_genes=3*len(problem.lectures)
     )
     
@@ -126,7 +138,13 @@ def make_run_ga_task3(problem: Problem, *,
         gene_space=problem.gene_space,
         stop_criteria="reach_1.0",
         num_genes=3*len(problem.lectures),
-        mutaion_type=custom_mut_cross.custom_mutation_func,
+        on_start=on_start,
+        on_fitness=on_fitness,
+        on_parents=on_parents,
+        on_crossover=on_crossover,
+        on_mutation=on_mutation,
+        on_generation=on_generation,
+        mutation_type=custom_mut_cross.custom_mutation_func,
         crossover_type=custom_mut_cross.custom_crossover_func
     )
     
@@ -140,7 +158,7 @@ def make_run_ga_task4(problem: Problem, *,
                 num_gen=100,
                 num_par_mate=20,
                 pop_size=50):
-    init_pop=improve_initial_pop(problem)
+    init_pop=improve_initial_pop(problem, pop_size=pop_size)
     ga_instance = pygad.GA(
         fitness_func=make_fitness(problem),
         num_generations=num_gen,
@@ -151,7 +169,13 @@ def make_run_ga_task4(problem: Problem, *,
         gene_space=problem.gene_space,
         stop_criteria="reach_1.0",
         num_genes=3*len(problem.lectures),
-        mutaion_type=custom_mut_cross.custom_mutation_func,
+        on_start=on_start,
+        on_fitness=on_fitness,
+        on_parents=on_parents,
+        on_crossover=on_crossover,
+        on_mutation=on_mutation,
+        on_generation=on_generation,
+        mutation_type=custom_mut_cross.custom_mutation_func,
         crossover_type=custom_mut_cross.custom_crossover_func
     )
     
